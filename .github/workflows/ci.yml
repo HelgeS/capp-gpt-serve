@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install 3.12
+    
+    - name: Install dependencies
+      run: uv sync --frozen
+    
+    - name: Start API server
+      run: |
+        uv run python -m uvicorn capp_gpt_serve.main:app --host 0.0.0.0 --port 8000 &
+        echo $! > server.pid
+        sleep 10  # Wait for server to start
+    
+    - name: Wait for server to be ready
+      run: |
+        timeout 30 bash -c 'until curl -f http://localhost:8000/health; do sleep 1; done'
+    
+    - name: Run API tests
+      run: uv run python test_api.py
+    
+    - name: Validate API responses
+      run: |
+        # Test health endpoint returns 200
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health)
+        if [ "$response" != "200" ]; then
+          echo "Health check failed with status: $response"
+          exit 1
+        fi
+        
+        # Test tokens endpoint returns 200
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/tokens)
+        if [ "$response" != "200" ]; then
+          echo "Tokens endpoint failed with status: $response"
+          exit 1
+        fi
+        
+        # Test prediction endpoint with sample data
+        response=$(curl -s -X POST http://localhost:8000/predict \
+          -H "Content-Type: application/json" \
+          -d '{
+            "part_characteristics": {
+              "geometry": "geometry_prismatic",
+              "holes": "holes_normal",
+              "external_threads": "external_threads_yes",
+              "surface_finish": "surface_finish_normal",
+              "tolerance": "tolerance_medium",
+              "batch_size": "batch_size_small"
+            },
+            "max_processes": 5,
+            "temperature": 0.8,
+            "include_confidence": true
+          }')
+        
+        # Check if response contains expected fields
+        if ! echo "$response" | jq -e '.predicted_processes' > /dev/null; then
+          echo "Prediction response missing predicted_processes field"
+          echo "Response: $response"
+          exit 1
+        fi
+        
+        echo "All API endpoints validated successfully"
+    
+    - name: Stop API server
+      if: always()
+      run: |
+        if [ -f server.pid ]; then
+          kill $(cat server.pid) || true
+          rm server.pid
+        fi
