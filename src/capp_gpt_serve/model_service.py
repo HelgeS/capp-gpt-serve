@@ -47,7 +47,13 @@ class ModelService:
             # Load weights from safetensors
             safetensors_path = model_path / "model.safetensors"
             state_dict = load_file(str(safetensors_path))
-            self.model.load_state_dict(state_dict)
+            
+            # Handle missing lm_head.weight by tying with transformer.wte.weight
+            if "lm_head.weight" not in state_dict and "transformer.wte.weight" in state_dict:
+                logger.info("Tying lm_head.weight with transformer.wte.weight")
+                state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
+            
+            self.model.load_state_dict(state_dict, strict=False)
             
             # Move to device and set eval mode
             self.model.to(self.device)
