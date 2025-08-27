@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  capp-gpt-serve:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./model:/app/model:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Optional: Add nginx reverse proxy for production
+  # nginx:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - capp-gpt-serve
+  #   restart: unless-stopped

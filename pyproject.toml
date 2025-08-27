@@ -1,0 +1,40 @@
+[project]
+name = "capp-gpt-serve"
+version = "0.1.0"
+description = "HTTP API for GPT-2 based manufacturing process planning model"
+readme = "README.md"
+authors = [
+    { name = "Helge Spieker", email = "info@hspieker.de" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "torch>=2.0.0",
+    "transformers>=4.35.0",
+    "pydantic>=2.0.0",
+    "safetensors>=0.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "httpx>=0.25.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+serve = "capp_gpt_serve.main:cli"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "httpx>=0.25.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.13,<0.9.0"]
+build-backend = "uv_build"
