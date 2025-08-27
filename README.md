@@ -40,7 +40,7 @@ If you are setting up a local development environment and have a CUDA-enabled GP
 
 2.  **Install PyTorch with GPU support:** Run the command provided by the PyTorch website. It will look something like this (example for CUDA 12.1):
     ```bash
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
     ```
     This command will override the default CPU-only version specified in the project's configuration.
 
