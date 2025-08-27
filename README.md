@@ -30,6 +30,25 @@ HTTP API for GPT-2 based manufacturing process planning. This service provides R
    - Documentation: http://localhost:8000/docs
    - Health check: http://localhost:8000/health
 
+### Local Development with GPU Support
+
+By default, this project is configured to use a CPU-only version of PyTorch to ensure compatibility across different environments, especially within the provided Docker container.
+
+If you are setting up a local development environment and have a CUDA-enabled GPU, you can install a version of PyTorch with GPU support.
+
+1.  **Follow the official PyTorch installation instructions:** Visit the [PyTorch website](https://pytorch.org/get-started/locally/) and select the appropriate options for your system (e.g., Linux, Pip, Python, and your CUDA version).
+
+2.  **Install PyTorch with GPU support:** Run the command provided by the PyTorch website. It will look something like this (example for CUDA 12.1):
+    ```bash
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    ```
+    This command will override the default CPU-only version specified in the project's configuration.
+
+3.  **Install other dependencies:** After installing the GPU-enabled version of PyTorch, you can proceed with installing the rest of the project's dependencies:
+    ```bash
+    uv sync
+    ```
+
 ### Using Docker
 
 1. **Build and run:**
