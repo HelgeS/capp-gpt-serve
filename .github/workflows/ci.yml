@@ -71,8 +71,8 @@ jobs:
           }')
         
         # Check if response contains expected fields
-        if ! echo "$response" | jq -e '.predicted_processes' > /dev/null; then
-          echo "Prediction response missing predicted_processes field"
+        if ! echo "$response" | jq -e '.manufacturing_processes' > /dev/null; then
+          echo "Prediction response missing manufacturing_processes field"
           echo "Response: $response"
           exit 1
         fi
