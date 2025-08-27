@@ -27,9 +27,8 @@ dev = [
 serve = "capp_gpt_serve.main:cli"
 
 [tool.uv]
-find-links = [
-    "https://download.pytorch.org/whl/cpu",
-]
+index-url = "https://download.pytorch.org/whl/cpu"
+extra-index-url = ["https://pypi.org/simple"]
 dev-dependencies = [
     "pytest>=7.0.0",
     "httpx>=0.25.0",
