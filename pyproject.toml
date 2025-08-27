@@ -2,7 +2,6 @@
 name = "capp-gpt-serve"
 version = "0.1.0"
 description = "HTTP API for GPT-2 based manufacturing process planning model"
-readme = "README.md"
 authors = [
     { name = "Helge Spieker", email = "info@hspieker.de" }
 ]
@@ -35,6 +34,9 @@ dev-dependencies = [
     "ruff>=0.1.0",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/capp_gpt_serve"]
+
 [build-system]
-requires = ["uv_build>=0.8.13,<0.9.0"]
-build-backend = "uv_build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
