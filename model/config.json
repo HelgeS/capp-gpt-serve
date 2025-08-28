@@ -8,6 +8,7 @@
   "embd_pdrop": 0.1,
   "eos_token_id": 51,
   "initializer_range": 0.02,
+  "is_decoder": true,
   "layer_norm_epsilon": 1e-05,
   "model_type": "gpt2",
   "n_ctx": 512,
@@ -27,7 +28,7 @@
   "summary_type": "cls_index",
   "summary_use_proj": true,
   "torch_dtype": "float32",
-  "transformers_version": "4.46.2",
+  "transformers_version": "4.53.3",
   "use_cache": true,
   "vocab_size": 53
 }

@@ -3,5 +3,5 @@
   "bos_token_id": 50256,
   "eos_token_id": 51,
   "pad_token_id": 52,
-  "transformers_version": "4.46.2"
+  "transformers_version": "4.53.3"
 }
