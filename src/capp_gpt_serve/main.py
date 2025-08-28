@@ -17,7 +17,7 @@ from .schemas import (
     InferenceResponse,
     HealthResponse,
     TokenCategoriesResponse,
-    ErrorResponse
+    ErrorResponse,
 )
 
 # Configure logging
@@ -30,7 +30,7 @@ app = FastAPI(
     description="HTTP API for GPT-2 based manufacturing process planning",
     version="0.1.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # Add CORS middleware
@@ -50,26 +50,26 @@ token_processor: TokenProcessor = None
 async def startup_event():
     """Initialize services on startup."""
     global token_processor
-    
+
     try:
         # Initialize paths
         model_path = Path("model")
         token_mappings_path = model_path / "token_mappings.json"
-        
+
         # Verify paths exist
         if not model_path.exists():
             raise FileNotFoundError(f"Model directory not found: {model_path}")
         if not token_mappings_path.exists():
             raise FileNotFoundError(f"Token mappings not found: {token_mappings_path}")
-        
+
         # Initialize token processor
         token_processor = TokenProcessor(token_mappings_path)
         logger.info("Token processor initialized")
-        
+
         # Load model
         model_service.load_model(model_path)
         logger.info("Model service initialized")
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
         raise
@@ -81,7 +81,7 @@ async def global_exception_handler(request, exc):
     logger.error(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"error": "Internal server error", "detail": str(exc)}
+        content={"error": "Internal server error", "detail": str(exc)},
     )
 
 
@@ -89,9 +89,7 @@ async def global_exception_handler(request, exc):
 async def health_check():
     """Health check endpoint."""
     return HealthResponse(
-        status="healthy",
-        model_loaded=model_service.is_loaded(),
-        version="0.1.0"
+        status="healthy", model_loaded=model_service.is_loaded(), version="0.1.0"
     )
 
 
@@ -101,9 +99,9 @@ async def get_valid_tokens():
     if token_processor is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Token processor not initialized"
+            detail="Token processor not initialized",
         )
-    
+
     categories = token_processor.get_valid_tokens()
     return TokenCategoriesResponse(**categories)
 
@@ -113,66 +111,67 @@ async def predict_manufacturing_processes(request: InferenceRequest):
     """Predict manufacturing processes for given part characteristics."""
     if not model_service.is_loaded():
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Model not loaded"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model not loaded"
         )
-    
+
     if token_processor is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Token processor not initialized"
+            detail="Token processor not initialized",
         )
-    
+
     start_time = time.time()
-    
+
     try:
         # Convert request to dictionary for processing
         input_data = {"part_characteristics": request.part_characteristics.model_dump()}
-        
+
         # Validate input
         if not token_processor.validate_input(input_data):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid input tokens"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid input tokens"
             )
-        
+
         # Convert JSON to token sequence
         input_sequence = token_processor.json_to_sequence(input_data)
-        
+
         # Generate output sequence
         output_sequence = model_service.generate_sequence(
             input_sequence,
             max_length=input_sequence.size(1) + request.max_processes,
-            temperature=request.temperature
+            temperature=request.temperature,
         )
-        
+
         # Convert back to JSON
         result = token_processor.sequence_to_json(
-            output_sequence, 
-            include_confidence=request.include_confidence
+            output_sequence, include_confidence=request.include_confidence
         )
-        
+
         # Limit number of processes if requested
         if len(result["manufacturing_processes"]) > request.max_processes:
-            result["manufacturing_processes"] = result["manufacturing_processes"][:request.max_processes]
+            result["manufacturing_processes"] = result["manufacturing_processes"][
+                : request.max_processes
+            ]
             if result.get("confidence_scores"):
-                result["confidence_scores"] = result["confidence_scores"][:request.max_processes]
-        
+                result["confidence_scores"] = result["confidence_scores"][
+                    : request.max_processes
+                ]
+
         processing_time = (time.time() - start_time) * 1000
-        
+
         return InferenceResponse(
             manufacturing_processes=result["manufacturing_processes"],
             confidence_scores=result.get("confidence_scores"),
-            processing_time_ms=processing_time
+            processing_time_ms=processing_time,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Prediction failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Prediction failed: {str(e)}"
+            detail=f"Prediction failed: {str(e)}",
         )
 
 
@@ -184,7 +183,7 @@ async def root():
         "version": "0.1.0",
         "description": "HTTP API for GPT-2 based manufacturing process planning",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }
 
 
@@ -195,7 +194,7 @@ def cli():
         host="0.0.0.0",
         port=8000,
         reload=True,
-        log_level="info"
+        log_level="info",
     )
 
 

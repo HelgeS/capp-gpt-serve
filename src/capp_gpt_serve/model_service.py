@@ -3,14 +3,13 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 from optimum.onnxruntime import ORTQuantizer, ORTModelForCausalLM
 from optimum.onnxruntime.configuration import AutoQuantizationConfig
 
 import torch
 from transformers import GPT2Config
-from safetensors.torch import load_file
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +46,18 @@ class ModelService:
             # Initialize model
             #            self.model = GPT2LMHeadModel.from_pretrained(
             #    model_path, local_files_only=True
-            #)
+            # )
             self.model = ORTModelForCausalLM.from_pretrained(model_path)
 
             # Quantize, if needed
             if False:
                 quantizer = ORTQuantizer.from_pretrained(onnx_path)
-                dqconfig = AutoQuantizationConfig.avx2(is_static=False, per_channel=False)
-                quantizer.quantize(save_dir="gpt2_quantize.onnx", quantization_config=dqconfig)
+                dqconfig = AutoQuantizationConfig.avx2(
+                    is_static=False, per_channel=False
+                )
+                quantizer.quantize(
+                    save_dir="gpt2_quantize.onnx", quantization_config=dqconfig
+                )
                 self.model = ORTModelForCausalLM.from_pretrained("gpt2_quantize.onnx")
 
             # Move to device and set eval mode
