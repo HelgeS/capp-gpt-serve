@@ -30,7 +30,7 @@ class ModelService:
         if not self._initialized:
             self.model: Optional[ORTModelForCausalLM] = None
             self.config: Optional[GPT2Config] = None
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.device = "cpu" # torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self._initialized = True
 
     def load_model(self, model_path: Path) -> None:
