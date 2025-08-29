@@ -86,7 +86,7 @@ Predict manufacturing processes for given part characteristics.
 **Response:**
 ```json
 {
-  "manufacturing_processes": ["Turning", "Milling", "Thread Milling"],
+  "process_chains": ["Turning", "Milling", "Thread Milling"],
   "confidence_scores": [0.95, 0.87, 0.73],
   "processing_time_ms": 45.2
 }

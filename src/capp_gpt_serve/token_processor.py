@@ -133,7 +133,7 @@ class TokenProcessor:
                         # Placeholder confidence score (would need actual model probabilities)
                         confidence_scores.append(0.8)
 
-            result = {"manufacturing_processes": processes}
+            result = {"process_chains": processes}
 
             if include_confidence:
                 result["confidence_scores"] = confidence_scores
@@ -173,7 +173,7 @@ class TokenProcessor:
             "surface_finish": [],
             "tolerance": [],
             "batch_size": [],
-            "manufacturing_processes": [],
+            "process_chains": [],
         }
 
         for token in self.token2id.keys():
@@ -192,6 +192,6 @@ class TokenProcessor:
             elif not token.startswith("<") and token not in sum(
                 categories.values(), []
             ):
-                categories["manufacturing_processes"].append(token)
+                categories["process_chains"].append(token)
 
         return categories

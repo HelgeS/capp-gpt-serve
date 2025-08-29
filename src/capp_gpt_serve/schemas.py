@@ -33,7 +33,7 @@ class InferenceRequest(BaseModel):
 class InferenceResponse(BaseModel):
     """Response model for manufacturing process inference."""
 
-    manufacturing_processes: List[str] = Field(
+    process_chains: List[str] = Field(
         ..., description="Recommended manufacturing processes"
     )
     confidence_scores: Optional[List[float]] = Field(
@@ -61,7 +61,7 @@ class TokenCategoriesResponse(BaseModel):
     surface_finish: List[str] = Field(..., description="Valid surface finish tokens")
     tolerance: List[str] = Field(..., description="Valid tolerance tokens")
     batch_size: List[str] = Field(..., description="Valid batch size tokens")
-    manufacturing_processes: List[str] = Field(
+    process_chains: List[str] = Field(
         ..., description="Possible manufacturing processes"
     )
 

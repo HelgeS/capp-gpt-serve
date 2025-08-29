@@ -107,7 +107,7 @@ async def get_valid_tokens():
 
 
 @app.post("/predict", response_model=InferenceResponse)
-async def predict_manufacturing_processes(request: InferenceRequest):
+async def predict_process_chains(request: InferenceRequest):
     """Predict manufacturing processes for given part characteristics."""
     if not model_service.is_loaded():
         raise HTTPException(
@@ -148,8 +148,8 @@ async def predict_manufacturing_processes(request: InferenceRequest):
         )
 
         # Limit number of processes if requested
-        if len(result["manufacturing_processes"]) > request.max_processes:
-            result["manufacturing_processes"] = result["manufacturing_processes"][
+        if len(result["process_chains"]) > request.max_processes:
+            result["process_chains"] = result["process_chains"][
                 : request.max_processes
             ]
             if result.get("confidence_scores"):
@@ -160,7 +160,7 @@ async def predict_manufacturing_processes(request: InferenceRequest):
         processing_time = (time.time() - start_time) * 1000
 
         return InferenceResponse(
-            manufacturing_processes=result["manufacturing_processes"],
+            process_chains=result["process_chains"],
             confidence_scores=result.get("confidence_scores"),
             processing_time_ms=processing_time,
         )
