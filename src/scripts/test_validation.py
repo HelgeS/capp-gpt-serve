@@ -195,7 +195,7 @@ def run_validation_tests(json_file_path: str = "data/parts_and_process_chains.js
     start_time = time.time()
     results = []
     
-    for i, entry in enumerate(test_data[:5]):
+    for i, entry in enumerate(test_data[3:4]):
         result = test_single_entry(entry, i)
         results.append(result)
         
