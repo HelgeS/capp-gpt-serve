@@ -13,12 +13,21 @@ logger = logging.getLogger(__name__)
 class TokenProcessor:
     """Service for handling token mapping and sequence conversion."""
 
-    def __init__(self, token_mappings_path: Path):
+    def __init__(self, token_mappings_path: Path, part_encoding_path: Optional[Path] = None):
         """Initialize with token mappings from JSON file."""
         self.token_mappings_path = token_mappings_path
         self.token2id: Dict[str, int] = {}
         self.id2token: Dict[str, str] = {}
+        
+        # Load part encoding and process list
+        if part_encoding_path is None:
+            part_encoding_path = Path(__file__).parent / "data" / "part_encoding_and_process_list.json"
+        self.part_encoding_path = part_encoding_path
+        self.part_encoding: Dict[str, List[str]] = {}
+        self.process_list: List[str] = []
+        
         self._load_mappings()
+        self._load_part_encoding()
 
     def _load_mappings(self) -> None:
         """Load token mappings from JSON file."""
@@ -33,6 +42,21 @@ class TokenProcessor:
 
         except Exception as e:
             logger.error(f"Failed to load token mappings: {e}")
+            raise
+
+    def _load_part_encoding(self) -> None:
+        """Load part encoding and process list from JSON file."""
+        try:
+            with open(self.part_encoding_path, "r") as f:
+                data = json.load(f)
+
+            self.part_encoding = data["part_encoding"]
+            self.process_list = data["process_list"]
+
+            logger.info(f"Loaded part encoding with {len(self.part_encoding)} categories and {len(self.process_list)} processes")
+
+        except Exception as e:
+            logger.error(f"Failed to load part encoding: {e}")
             raise
 
     def json_to_sequence(self, input_data: Dict[str, Any]) -> torch.Tensor:
@@ -92,43 +116,19 @@ class TokenProcessor:
                 )
                 process_tokens = token_ids
 
+            # Build set of part characteristic tokens to skip
+            part_characteristic_tokens = set()
+            for category, values in self.part_encoding.items():
+                for value in values:
+                    part_characteristic_tokens.add(f"{category}_{value}")
+
             # Convert process token IDs to names
             for token_id in process_tokens:
                 token_str = str(token_id)
                 if token_str in self.id2token:
                     token_name = self.id2token[token_str]
-                    # Skip special tokens
-                    if not token_name.startswith("<") and token_name not in [
-                        "geometry_pure_axisymmetric",
-                        "geometry_axisymmetric_with_prismatic_features",
-                        "geometry_prismatic",
-                        "geometry_prismatic_with_axisymmetric_features",
-                        "geometry_prismatic_with_freeform_features",
-                        "geometry_freeform",
-                        "geometry_unconventional",
-                        "holes_none",
-                        "holes_normal",
-                        "holes_normal_threaded",
-                        "holes_normal_functional",
-                        "holes_large",
-                        "holes_large_threaded",
-                        "holes_large_functional",
-                        "external_threads_yes",
-                        "external_threads_no",
-                        "surface_finish_rough",
-                        "surface_finish_normal",
-                        "surface_finish_good",
-                        "surface_finish_very_good",
-                        "tolerance_rough",
-                        "tolerance_normal",
-                        "tolerance_medium",
-                        "tolerance_tight",
-                        "batch_size_prototype",
-                        "batch_size_small",
-                        "batch_size_medium",
-                        "batch_size_large",
-                        "batch_size_mass",
-                    ]:
+                    # Skip special tokens and part characteristic tokens
+                    if not token_name.startswith("<") and token_name not in part_characteristic_tokens:
                         processes.append(token_name)
                         # Placeholder confidence score (would need actual model probabilities)
                         confidence_scores.append(0.8)
@@ -166,32 +166,37 @@ class TokenProcessor:
 
     def get_valid_tokens(self) -> Dict[str, List[str]]:
         """Get all valid tokens organized by category."""
-        categories = {
-            "geometry": [],
-            "holes": [],
-            "external_threads": [],
-            "surface_finish": [],
-            "tolerance": [],
-            "batch_size": [],
-            "process_chains": [],
-        }
+        categories = {}
+        
+        # Initialize categories from part encoding
+        for category in self.part_encoding.keys():
+            categories[category] = []
+        
+        # Add process_chains category
+        categories["process_chains"] = []
+        
+        # Build set of part characteristic tokens
+        part_characteristic_tokens = set()
+        for category, values in self.part_encoding.items():
+            for value in values:
+                part_characteristic_tokens.add(f"{category}_{value}")
 
+        # Categorize all tokens
         for token in self.token2id.keys():
-            if token.startswith("geometry_"):
-                categories["geometry"].append(token)
-            elif token.startswith("holes_"):
-                categories["holes"].append(token)
-            elif token.startswith("external_threads_"):
-                categories["external_threads"].append(token)
-            elif token.startswith("surface_finish_"):
-                categories["surface_finish"].append(token)
-            elif token.startswith("tolerance_"):
-                categories["tolerance"].append(token)
-            elif token.startswith("batch_size_"):
-                categories["batch_size"].append(token)
-            elif not token.startswith("<") and token not in sum(
-                categories.values(), []
-            ):
+            # Skip special tokens
+            if token.startswith("<"):
+                continue
+                
+            # Check if it's a part characteristic token
+            categorized = False
+            for category in self.part_encoding.keys():
+                if token.startswith(f"{category}_"):
+                    categories[category].append(token)
+                    categorized = True
+                    break
+            
+            # If not a part characteristic token, it's likely a process
+            if not categorized:
                 categories["process_chains"].append(token)
 
         return categories

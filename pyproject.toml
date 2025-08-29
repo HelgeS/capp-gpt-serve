@@ -14,6 +14,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "safetensors>=0.4.0",
     "optimum[onnxruntime]>=1.27.0",
+    "requests>=2.25.0",
 ]
 
 [project.optional-dependencies]
@@ -23,10 +24,14 @@ dev = [
     "black>=23.0.0",
     "ruff>=0.1.0",
     "aiohttp>=3.12.15",
+    "requests>=2.25.0",
 ]
 
 [project.scripts]
 serve = "capp_gpt_serve.main:cli"
+test_api = "scripts.test_api:main"
+benchmark = "scripts.benchmark_api:main"
+validate = "scripts.test_validation:main"
 
 [tool.uv]
 index-url = "https://download.pytorch.org/whl/cpu"
