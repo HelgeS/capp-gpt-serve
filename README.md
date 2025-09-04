@@ -1,11 +1,11 @@
 # CAPP GPT Serve
 
-HTTP API for GPT-2 based manufacturing process planning. This service provides REST endpoints to predict manufacturing processes based on part characteristics using a trained GPT-2 transformer model.
+HTTP API for GPT-2 based manufacturing process planning. This service provides REST endpoints to predict manufacturing processes based on part characteristics using a trained GPT-2 transformer model, optimized for performance with ONNX Runtime.
 
 ## Features
 
 - **FastAPI-based REST API** with automatic OpenAPI documentation
-- **GPT-2 model inference** for manufacturing process planning
+- **Optimized GPT-2 model inference** using ONNX Runtime
 - **JSON input/output** with Pydantic validation
 - **Docker support** with multi-stage builds using uv
 - **Health monitoring** and error handling
@@ -32,19 +32,19 @@ HTTP API for GPT-2 based manufacturing process planning. This service provides R
 
 ### Local Development with GPU Support
 
-By default, this project is configured to use a CPU-only version of PyTorch to ensure compatibility across different environments, especially within the provided Docker container.
+By default, this project is configured to use a CPU-only version of PyTorch and ONNX Runtime to ensure compatibility across different environments.
 
-If you are setting up a local development environment and have a CUDA-enabled GPU, you can install a version of PyTorch with GPU support.
+If you are setting up a local development environment and have a CUDA-enabled GPU, you can install a version of ONNX Runtime with GPU support.
 
-1.  **Follow the official PyTorch installation instructions:** Visit the [PyTorch website](https://pytorch.org/get-started/locally/) and select the appropriate options for your system (e.g., Linux, Pip, Python, and your CUDA version).
+1.  **Follow the official ONNX Runtime installation instructions:** Visit the [ONNX Runtime website](https://onnxruntime.ai/docs/install/) to find the correct package for your system (e.g., `onnxruntime-gpu`).
 
-2.  **Install PyTorch with GPU support:** Run the command provided by the PyTorch website. It will look something like this (example for CUDA 12.1):
+2.  **Install ONNX Runtime with GPU support:**
     ```bash
-    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    uv add onnxruntime-gpu
     ```
-    This command will override the default CPU-only version specified in the project's configuration.
+    This command will override the default CPU-only version.
 
-3.  **Install other dependencies:** After installing the GPU-enabled version of PyTorch, you can proceed with installing the rest of the project's dependencies:
+3.  **Install other dependencies:** After installing the GPU-enabled version, you can proceed with installing the rest of the project's dependencies:
     ```bash
     uv sync
     ```
@@ -58,7 +58,7 @@ If you are setting up a local development environment and have a CUDA-enabled GP
 
 2. **Test the API:**
    ```bash
-   python test_api.py
+   uv run test-api
    ```
 
 ## API Endpoints
@@ -101,26 +101,30 @@ Health check endpoint returning service status.
 ## Project Structure
 
 ```
-├── src/capp_gpt_serve/
-│   ├── __init__.py          # Package initialization
-│   ├── main.py              # FastAPI application
-│   ├── model_service.py     # Model loading and inference
-│   ├── token_processor.py   # Token mapping and conversion
-│   └── schemas.py           # Pydantic models
-├── model/                   # GPT-2 model files
+├── data/
+│   └── parts_and_process_chains.json # Training data
+├── model/                   # GPT-2 ONNX model files
 │   ├── config.json
 │   ├── generation_config.json
-│   ├── model.safetensors
+│   ├── model.onnx
 │   └── token_mappings.json
-├── pyproject.toml          # Project configuration
-├── Dockerfile              # Multi-stage Docker build
-├── docker-compose.yml      # Container orchestration
-└── test_api.py            # API test script
+├── src/
+│   ├── capp_gpt_serve/      # Main application package
+│   │   ├── main.py          # FastAPI application
+│   │   ├── model_service.py # Model loading and inference
+│   │   ├── schemas.py       # Pydantic models
+│   │   └── token_processor.py # Token mapping and conversion
+│   └── scripts/             # Utility and test scripts
+│       ├── benchmark_api.py
+│       └── test_api.py
+├── pyproject.toml           # Project configuration and dependencies
+├── Dockerfile               # Multi-stage Docker build
+└── docker-compose.yml       # Container orchestration
 ```
 
 ## Model Details
 
-The service uses a custom GPT-2 model trained for manufacturing process planning:
+The service uses a custom GPT-2 model trained for manufacturing process planning, converted to ONNX for high-performance inference.
 - **Architecture:** GPT2LMHeadModel
 - **Parameters:** 4 layers, 4 attention heads, 64 embedding dimensions
 - **Vocabulary:** 53 tokens (manufacturing-specific)
@@ -133,37 +137,48 @@ The service uses a custom GPT-2 model trained for manufacturing process planning
 # Format code
 uv run black .
 
-# Lint code  
+# Lint code
 uv run ruff check .
+```
 
-# Run tests
-uv run pytest
+### Running Scripts
+
+The project includes several scripts defined in `pyproject.toml` that can be executed with `uv run`.
+
+```bash
+# Run the API test script
+uv run test-api
+
+# Run the benchmark script
+uv run benchmark
+
+# Run the validation script
+uv run validate
 ```
 
 ### Adding Dependencies
 ```bash
 # Add runtime dependency
-uv add package-name
+uv pip install package-name
 
 # Add development dependency
-uv add --dev package-name
+uv pip install --dev package-name
 ```
 
 ## Production Deployment
 
 1. **Environment variables:**
-   - `PYTHONPATH`: Set to `/app/src`
+   - `PYTHONPATH`: Set to `/app`
    - `PORT`: API port (default: 8000)
 
 2. **Resource requirements:**
-   - Memory: 4GB+ (for PyTorch model)
-   - CPU: 2+ cores recommended
-   - Disk: 2GB+ for model and dependencies
+   - Memory: 2GB+
+   - CPU: 1+ cores
+   - Disk: 1GB+ for model and dependencies
 
 3. **Health monitoring:**
    - Health endpoint: `/health`
    - Docker health check included
-   - Prometheus metrics (optional)
 
 ## License
 

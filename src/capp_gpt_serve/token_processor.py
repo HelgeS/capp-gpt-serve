@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Set
 
 import torch
 
@@ -13,19 +13,24 @@ logger = logging.getLogger(__name__)
 class TokenProcessor:
     """Service for handling token mapping and sequence conversion."""
 
-    def __init__(self, token_mappings_path: Path, part_encoding_path: Optional[Path] = None):
+    def __init__(
+        self, token_mappings_path: Path, part_encoding_path: Optional[Path] = None
+    ):
         """Initialize with token mappings from JSON file."""
         self.token_mappings_path = token_mappings_path
         self.token2id: Dict[str, int] = {}
         self.id2token: Dict[str, str] = {}
-        
+
         # Load part encoding and process list
         if part_encoding_path is None:
-            part_encoding_path = Path(__file__).parent / "data" / "part_encoding_and_process_list.json"
+            part_encoding_path = (
+                Path(__file__).parent / "data" / "part_encoding_and_process_list.json"
+            )
         self.part_encoding_path = part_encoding_path
         self.part_encoding: Dict[str, List[str]] = {}
         self.process_list: List[str] = []
-        
+        self.part_characteristic_tokens: Set[str] = set()
+
         self._load_mappings()
         self._load_part_encoding()
 
@@ -53,7 +58,16 @@ class TokenProcessor:
             self.part_encoding = data["part_encoding"]
             self.process_list = data["process_list"]
 
-            logger.info(f"Loaded part encoding with {len(self.part_encoding)} categories and {len(self.process_list)} processes")
+            logger.info(
+                f"Loaded part encoding with {len(self.part_encoding)} categories and {len(self.process_list)} processes"
+            )
+
+            part_characteristic_tokens = set()
+            for category, values in self.part_encoding.items():
+                for value in values:
+                    part_characteristic_tokens.add(f"{category}_{value}")
+            self.part_characteristic_tokens = part_characteristic_tokens
+            logger.info("Build set of part characteristic tokens to skip")
 
         except Exception as e:
             logger.error(f"Failed to load part encoding: {e}")
@@ -62,13 +76,11 @@ class TokenProcessor:
     def json_to_sequence(self, input_data: Dict[str, Any]) -> torch.Tensor:
         """Convert JSON input to token sequence."""
         try:
-            # Start with SOS token
-            sequence = [self.token2id["<SOS>"]]
+            sequence = []
 
-            # Process part characteristics
             part_chars = input_data.get("part_characteristics", {})
 
-            # Add tokens in order: geometry, holes, external_threads, surface_finish, tolerance, batch_size
+            # Add tokens in order
             for key in [
                 "geometry",
                 "holes",
@@ -84,11 +96,10 @@ class TokenProcessor:
                     else:
                         logger.warning(f"Unknown token: {value}")
 
-            # Add end of context token
-            sequence.append(self.token2id["<EOC>"])
+            # Add start of sequence to prompt model for completion
+            sequence.append(self.token2id["<SOS>"])
 
             return torch.tensor([sequence], dtype=torch.long)
-
         except Exception as e:
             logger.error(f"Failed to convert JSON to sequence: {e}")
             raise
@@ -103,12 +114,9 @@ class TokenProcessor:
                 sequence = sequence.squeeze(0)
             token_ids = sequence.tolist()
 
-            # Find manufacturing processes (tokens after <EOC>)
-            processes = []
-            confidence_scores = []
-
+            # Find manufacturing process tokens (tokens after <SOS>)
             try:
-                eoc_idx = token_ids.index(self.token2id["<EOC>"])
+                eoc_idx = token_ids.index(self.token2id["<SOS>"])
                 process_tokens = token_ids[eoc_idx + 1 :]
             except ValueError:
                 logger.warning(
@@ -116,24 +124,40 @@ class TokenProcessor:
                 )
                 process_tokens = token_ids
 
-            # Build set of part characteristic tokens to skip
-            part_characteristic_tokens = set()
-            for category, values in self.part_encoding.items():
-                for value in values:
-                    part_characteristic_tokens.add(f"{category}_{value}")
-
             # Convert process token IDs to names
+            process_chains = []
+            confidence_scores = []
+            current_chain = []
+            current_chain_confidence = []
+
             for token_id in process_tokens:
                 token_str = str(token_id)
                 if token_str in self.id2token:
                     token_name = self.id2token[token_str]
-                    # Skip special tokens and part characteristic tokens
-                    if not token_name.startswith("<") and token_name not in part_characteristic_tokens:
-                        processes.append(token_name)
-                        # Placeholder confidence score (would need actual model probabilities)
-                        confidence_scores.append(0.8)
 
-            result = {"process_chains": processes}
+                    # Check if current process chain is complete
+                    if token_name in ("<EOC>", "<EOS>"):
+                        if len(current_chain) > 0:
+                            process_chains.append(current_chain)
+                            confidence_scores.append(current_chain_confidence)
+
+                        current_chain = []
+                        current_chain_confidence = []
+                        continue
+
+                    # Skip part characteristic tokens and all other special tokens
+                    if (
+                        token_name in self.part_characteristic_tokens
+                        or token_name.startswith("<")
+                    ):
+                        continue
+
+                    current_chain.append(token_name)
+
+                    # Placeholder confidence score (would need actual model probabilities)
+                    current_chain_confidence.append(0.8)
+
+            result = {"process_chains": process_chains}
 
             if include_confidence:
                 result["confidence_scores"] = confidence_scores
@@ -167,14 +191,14 @@ class TokenProcessor:
     def get_valid_tokens(self) -> Dict[str, List[str]]:
         """Get all valid tokens organized by category."""
         categories = {}
-        
+
         # Initialize categories from part encoding
         for category in self.part_encoding.keys():
             categories[category] = []
-        
+
         # Add process_chains category
         categories["process_chains"] = []
-        
+
         # Build set of part characteristic tokens
         part_characteristic_tokens = set()
         for category, values in self.part_encoding.items():
@@ -186,7 +210,7 @@ class TokenProcessor:
             # Skip special tokens
             if token.startswith("<"):
                 continue
-                
+
             # Check if it's a part characteristic token
             categorized = False
             for category in self.part_encoding.keys():
@@ -194,7 +218,7 @@ class TokenProcessor:
                     categories[category].append(token)
                     categorized = True
                     break
-            
+
             # If not a part characteristic token, it's likely a process
             if not categorized:
                 categories["process_chains"].append(token)

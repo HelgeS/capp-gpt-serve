@@ -29,8 +29,11 @@ class ModelService:
         if not self._initialized:
             self.model: Optional[ORTModelForCausalLM] = None
             self.config: Optional[GPT2Config] = None
-            self.device = "cpu" # torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            # CPU-only for now, otherwise use: torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.device = "cpu"
             self._initialized = True
+            self.pad_token_id: int = 52  # Default pad token ID
+            self.eos_token_id: int = 51  # Default EOS token ID
 
     def load_model(self, model_path: Path) -> None:
         """Load the GPT-2 model from the specified path."""
@@ -43,8 +46,14 @@ class ModelService:
             self.config = GPT2Config.from_dict(config_dict)
             logger.info(f"Loaded model config: {self.config}")
 
+            self.pad_token_id = getattr(self.config, "pad_token_id", self.pad_token_id)
+            logger.info(f"Pad token ID: {self.pad_token_id}")
+
+            self.eos_token_id = getattr(self.config, "eos_token_id", self.eos_token_id)
+            logger.info(f"EOS token ID: {self.eos_token_id}")
+
             # Initialize model
-            #            self.model = GPT2LMHeadModel.from_pretrained(
+            # self.model = GPT2LMHeadModel.from_pretrained(
             #    model_path, local_files_only=True
             # )
             self.model = ORTModelForCausalLM.from_pretrained(model_path)
@@ -73,11 +82,10 @@ class ModelService:
     def generate_sequence(
         self,
         input_ids: torch.Tensor,
-        max_length: int = 50,
+        max_length: int = 512,
         temperature: float = 1.0,
         do_sample: bool = True,
         top_p: float = 0.9,
-        pad_token_id: Optional[int] = None,
     ) -> torch.Tensor:
         """Generate a sequence using the loaded model."""
         if self.model is None:
@@ -87,20 +95,15 @@ class ModelService:
             with torch.no_grad():
                 input_ids = input_ids.to(self.device)
 
-                # Set pad_token_id from config if not provided
-                if pad_token_id is None:
-                    pad_token_id = getattr(self.config, "pad_token_id", 52)
-
                 outputs = self.model.generate(
                     input_ids,
                     max_length=max_length,
                     temperature=temperature,
                     do_sample=do_sample,
                     top_p=top_p,
-                    pad_token_id=pad_token_id,
-                    eos_token_id=getattr(self.config, "eos_token_id", 51),
+                    pad_token_id=self.pad_token_id,
+                    eos_token_id=self.eos_token_id,
                 )
-
                 return outputs
 
         except Exception as e:

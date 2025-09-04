@@ -11,3 +11,5 @@ wheels/
 
 # Log files
 server.log
+
+validation_results.json

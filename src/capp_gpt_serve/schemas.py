@@ -1,7 +1,7 @@
 """Pydantic schemas for API request and response validation."""
 
-from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, validator
+from typing import List, Optional
+from pydantic import BaseModel, Field
 
 
 class PartCharacteristics(BaseModel):
@@ -33,10 +33,10 @@ class InferenceRequest(BaseModel):
 class InferenceResponse(BaseModel):
     """Response model for manufacturing process inference."""
 
-    process_chains: List[str] = Field(
+    process_chains: List[List[str]] = Field(
         ..., description="Recommended manufacturing processes"
     )
-    confidence_scores: Optional[List[float]] = Field(
+    confidence_scores: Optional[List[List[float]]] = Field(
         None, description="Confidence scores for each process"
     )
     processing_time_ms: float = Field(
