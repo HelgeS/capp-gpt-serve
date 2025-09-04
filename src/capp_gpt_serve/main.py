@@ -138,7 +138,7 @@ async def predict_process_chains(request: InferenceRequest):
         # Generate output sequence
         output_sequence = model_service.generate_sequence(
             input_sequence,
-            max_length=input_sequence.size(1) + request.max_processes,
+            max_length=512, #input_sequence.size(1) + request.max_processes,
             temperature=request.temperature,
         )
 
