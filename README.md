@@ -78,9 +78,6 @@ Predict manufacturing processes for given part characteristics.
     "tolerance": "tolerance_medium",
     "batch_size": "batch_size_small"
   },
-  "max_processes": 5,
-  "temperature": 0.8,
-  "include_confidence": true
   "temperature": 1.0
 }
 ```
@@ -88,8 +85,9 @@ Predict manufacturing processes for given part characteristics.
 **Response:**
 ```json
 {
-  "process_chains": ["Turning", "Milling", "Thread Milling"],
-  "confidence_scores": [0.95, 0.87, 0.73],
+  "process_chains": [["Turning", "Milling", "Thread Milling"]],
+  "process_confidence": [[0.95, 0.87, 0.73]],
+  "chain_confidence": [0.60],
   "processing_time_ms": 45.2
 }
 ```
