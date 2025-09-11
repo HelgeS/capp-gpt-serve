@@ -22,9 +22,6 @@ class InferenceRequest(BaseModel):
     temperature: Optional[float] = Field(
         default=1.0, ge=0.1, le=2.0, description="Sampling temperature"
     )
-    include_confidence: Optional[bool] = Field(
-        default=True, description="Include confidence scores in response"
-    )
 
 
 class InferenceResponse(BaseModel):
@@ -37,7 +34,8 @@ class InferenceResponse(BaseModel):
         ..., description="Confidence scores for each process"
     )
     chain_confidence: List[float] = Field(
-        ..., description="Overall confidence score for each process chain (0-1, higher is more confident)"
+        ...,
+        description="Overall confidence score for each process chain (0-1, higher is more confident)",
     )
     processing_time_ms: float = Field(
         ..., description="Processing time in milliseconds"
@@ -69,12 +67,24 @@ class TokenCategoriesResponse(BaseModel):
 class InputInfluence(BaseModel):
     """Model for input influence mapping per process step."""
 
-    geometry: Optional[float] = Field(None, description="Influence of geometry on this process")
-    holes: Optional[float] = Field(None, description="Influence of holes on this process")
-    external_threads: Optional[float] = Field(None, description="Influence of external threads on this process")
-    surface_finish: Optional[float] = Field(None, description="Influence of surface finish on this process")
-    tolerance: Optional[float] = Field(None, description="Influence of tolerance on this process")
-    batch_size: Optional[float] = Field(None, description="Influence of batch size on this process")
+    geometry: Optional[float] = Field(
+        None, description="Influence of geometry on this process"
+    )
+    holes: Optional[float] = Field(
+        None, description="Influence of holes on this process"
+    )
+    external_threads: Optional[float] = Field(
+        None, description="Influence of external threads on this process"
+    )
+    surface_finish: Optional[float] = Field(
+        None, description="Influence of surface finish on this process"
+    )
+    tolerance: Optional[float] = Field(
+        None, description="Influence of tolerance on this process"
+    )
+    batch_size: Optional[float] = Field(
+        None, description="Influence of batch size on this process"
+    )
 
 
 class ExplainabilityData(BaseModel):
@@ -92,16 +102,14 @@ class ExplainableInferenceRequest(BaseModel):
     temperature: Optional[float] = Field(
         default=1.0, ge=0.1, le=2.0, description="Sampling temperature"
     )
-    include_confidence: Optional[bool] = Field(
-        default=True, description="Include confidence scores in response"
-    )
 
 
 class ExplainableInferenceResponse(InferenceResponse):
     """Response model for explainable manufacturing process inference."""
 
     explainability: ExplainabilityData = Field(
-        ..., description="Explainability information including uncertainty and input influences"
+        ...,
+        description="Explainability information including uncertainty and input influences",
     )
 
 
