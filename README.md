@@ -62,6 +62,7 @@ If you are setting up a local development environment and have a CUDA-enabled GP
    ```
 
 ## API Endpoints
+**Authentication**: If the `PREDICT_AUTH_TOKEN` environment variable is set, all `POST` requests to prediction endpoints (`/predict`, `/predict/explainable`) require an `X-Auth-Token` header with an access token: `X-Auth-Token: <your-token>`.
 
 ### `POST /predict`
 Predict manufacturing processes for given part characteristics.
@@ -80,6 +81,7 @@ Predict manufacturing processes for given part characteristics.
   "max_processes": 5,
   "temperature": 0.8,
   "include_confidence": true
+  "temperature": 1.0
 }
 ```
 

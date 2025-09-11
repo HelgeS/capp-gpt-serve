@@ -1,13 +1,16 @@
 """Main FastAPI application for the manufacturing process planning API."""
 
+import os
 import time
 import logging
 from pathlib import Path
+from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from dotenv import load_dotenv
 
 from .model_service import model_service
 from .token_processor import TokenProcessor
@@ -19,6 +22,8 @@ from .schemas import (
     HealthResponse,
     TokenCategoriesResponse,
 )
+
+load_dotenv()  # Load environment variables from .env file
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -44,17 +49,28 @@ app.add_middleware(
 
 # Global token processor
 token_processor: TokenProcessor
+PREDICT_AUTH_TOKEN: Optional[str] = None
 
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup."""
     global token_processor
+    global PREDICT_AUTH_TOKEN
 
     try:
         # Initialize paths
         model_path = Path("model")
         token_mappings_path = model_path / "token_mappings.json"
+
+        # Load prediction auth token from environment
+        PREDICT_AUTH_TOKEN = os.getenv("PREDICT_AUTH_TOKEN")
+        if PREDICT_AUTH_TOKEN:
+            logger.info("Authentication for /predict endpoint is enabled.")
+        else:
+            logger.warning(
+                "PREDICT_AUTH_TOKEN is not set. The /predict endpoint is not protected."
+            )
 
         # Verify paths exist
         if not model_path.exists():
@@ -107,8 +123,16 @@ async def get_valid_tokens():
 
 
 @app.post("/predict", response_model=InferenceResponse)
-async def predict_process_chains(request: InferenceRequest):
+async def predict_process_chains(
+    request: InferenceRequest, x_auth_token: Optional[str] = Header(None)
+):
     """Predict manufacturing processes for given part characteristics."""
+    if PREDICT_AUTH_TOKEN and x_auth_token != PREDICT_AUTH_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+
     if not model_service.is_loaded():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model not loaded"
@@ -166,9 +190,15 @@ async def predict_process_chains(request: InferenceRequest):
 
 @app.post("/predict/explain", response_model=ExplainableInferenceResponse)
 async def predict_process_chains_with_explainability(
-    request: ExplainableInferenceRequest,
+    request: ExplainableInferenceRequest, x_auth_token: Optional[str] = Header(None)
 ):
     """Predict manufacturing processes with explainability information."""
+    if PREDICT_AUTH_TOKEN and x_auth_token != PREDICT_AUTH_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+
     if not model_service.is_loaded():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model not loaded"

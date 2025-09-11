@@ -1,10 +1,16 @@
 """Test script for the CAPP GPT API."""
 
+import os
 import requests
 import json
 import time
 
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
+
 API_BASE = "http://localhost:8000"
+PREDICT_AUTH_TOKEN = os.getenv("PREDICT_AUTH_TOKEN")
 
 
 def test_health_endpoint():
@@ -31,6 +37,51 @@ def test_tokens_endpoint():
     print()
 
 
+def test_prediction_auth_token():
+    """Test the prediction endpoint with and without auth token."""
+    print("Testing prediction endpoint authentication...")
+
+    # Example request
+    request_data = {
+        "part_characteristics": {
+            "geometry": "geometry_prismatic",
+            "holes": "holes_normal",
+            "external_threads": "external_threads_yes",
+            "surface_finish": "surface_finish_normal",
+            "tolerance": "tolerance_medium",
+            "batch_size": "batch_size_small",
+        },
+        "max_processes": 5,
+        "temperature": 0.8,
+    }
+    headers = {}
+    if PREDICT_AUTH_TOKEN:
+        print("Testing with valid token...")
+        headers["X-Auth-Token"] = PREDICT_AUTH_TOKEN
+        response = requests.post(
+            f"{API_BASE}/predict", json=request_data, headers=headers
+        )
+        print(f"Status: {response.status_code}")
+        assert response.status_code == 200
+
+        print("Testing with invalid token...")
+        headers["X-Auth-Token"] = "invalid-token"
+        response = requests.post(
+            f"{API_BASE}/predict", json=request_data, headers=headers
+        )
+        print(f"Status: {response.status_code}")
+        assert response.status_code == 401
+
+        print("Testing without token...")
+        response = requests.post(f"{API_BASE}/predict", json=request_data)
+        print(f"Status: {response.status_code}")
+        assert response.status_code == 401
+    else:
+        print("No PREDICT_AUTH_TOKEN set; skipping auth token tests.")
+
+    print("")
+
+
 def test_prediction_endpoint():
     """Test the prediction endpoint."""
     print("Testing prediction endpoint...")
@@ -47,13 +98,16 @@ def test_prediction_endpoint():
         },
         "max_processes": 5,
         "temperature": 0.8,
-        "include_confidence": True,
     }
 
     print(f"Request: {json.dumps(request_data, indent=2)}")
 
+    headers = {}
+    if PREDICT_AUTH_TOKEN:
+        headers["X-Auth-Token"] = PREDICT_AUTH_TOKEN
+
     start_time = time.time()
-    response = requests.post(f"{API_BASE}/predict", json=request_data)
+    response = requests.post(f"{API_BASE}/predict", json=request_data, headers=headers)
     request_time = (time.time() - start_time) * 1000
 
     print(f"Status: {response.status_code}")
@@ -83,13 +137,18 @@ def test_explainable_prediction_endpoint():
         },
         "max_processes": 3,
         "temperature": 0.8,
-        "include_confidence": True,
     }
 
     print(f"Request: {json.dumps(request_data, indent=2)}")
 
+    headers = {}
+    if PREDICT_AUTH_TOKEN:
+        headers["X-Auth-Token"] = PREDICT_AUTH_TOKEN
+
     start_time = time.time()
-    response = requests.post(f"{API_BASE}/predict/explain", json=request_data)
+    response = requests.post(
+        f"{API_BASE}/predict/explain", json=request_data, headers=headers
+    )
     request_time = (time.time() - start_time) * 1000
 
     print(f"Status: {response.status_code}")
@@ -98,13 +157,15 @@ def test_explainable_prediction_endpoint():
     if response.status_code == 200:
         result = response.json()
         print(f"Response: {json.dumps(result, indent=2)}")
-        
+
         # Validate explainability structure
         if "explainability" in result:
             explainability = result["explainability"]
             print("Explainability validation:")
-            print(f"  - Input influences: {len(explainability.get('input_influences', []))} chains")
-            
+            print(
+                f"  - Input influences: {len(explainability.get('input_influences', []))} chains"
+            )
+
             # Check structure of input influences
             if explainability.get("input_influences"):
                 first_chain = explainability["input_influences"][0]
@@ -126,6 +187,7 @@ def main():
     try:
         test_health_endpoint()
         test_tokens_endpoint()
+        test_prediction_auth_token()
         test_prediction_endpoint()
         test_explainable_prediction_endpoint()
         print("All tests completed!")

@@ -13,3 +13,5 @@ wheels/
 server.log
 
 validation_results.json
+
+.env
