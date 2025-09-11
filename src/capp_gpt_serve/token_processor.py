@@ -1,5 +1,6 @@
 """Token processing service for converting between JSON and token sequences."""
 
+from functools import reduce
 import json
 import logging
 from pathlib import Path
@@ -104,8 +105,44 @@ class TokenProcessor:
             logger.error(f"Failed to convert JSON to sequence: {e}")
             raise
 
+    def sequence_to_json_with_explainability(
+        self,
+        sequence: torch.Tensor,
+        logits: List[torch.Tensor],
+        attentions: List[torch.Tensor],
+        input_sequence: torch.Tensor,
+        input_characteristics: Dict[str, str],
+    ) -> Dict[str, Any]:
+        """Convert token sequence to JSON format with explainability information."""
+        try:
+            # First get the basic result
+            result = self.sequence_to_json(sequence, logits)
+
+            # Import explainability processor here to avoid circular imports
+            from .explainability_service import explainability_processor
+
+            # Process explainability data
+            explainability_data = explainability_processor.process_explainability_data(
+                input_sequence=input_sequence,
+                attentions=attentions,
+                process_chains=result["process_chains"],
+                input_characteristics=input_characteristics,
+            )
+
+            result["explainability"] = explainability_data
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to convert sequence to JSON with explainability: {e}")
+            # Fallback to basic conversion
+            result = self.sequence_to_json(sequence, logits)
+            result["explainability"] = {
+                "input_influences": [{} for _ in result["process_chains"]],
+            }
+            return result
+
     def sequence_to_json(
-        self, sequence: torch.Tensor, include_confidence: bool = True
+        self, sequence: torch.Tensor, logits: List[torch.Tensor]
     ) -> Dict[str, Any]:
         """Convert token sequence back to JSON format."""
         try:
@@ -130,8 +167,13 @@ class TokenProcessor:
             current_chain = []
             current_chain_confidence = []
 
-            for token_id in process_tokens:
+            assert len(process_tokens) == len(logits), (
+                "Mismatch between tokens and logits length"
+            )
+
+            for token_id, token_logits in zip(process_tokens, logits):
                 token_str = str(token_id)
+
                 if token_str in self.id2token:
                     token_name = self.id2token[token_str]
 
@@ -155,12 +197,17 @@ class TokenProcessor:
                     current_chain.append(token_name)
 
                     # Placeholder confidence score (would need actual model probabilities)
-                    current_chain_confidence.append(0.8)
+                    token_confidence = token_logits.softmax(-1)[0][token_id].item()
+                    current_chain_confidence.append(token_confidence)
 
-            result = {"process_chains": process_chains}
-
-            if include_confidence:
-                result["confidence_scores"] = confidence_scores
+            result = {
+                "process_chains": process_chains,
+                "process_confidence": confidence_scores,
+                "chain_confidence": [
+                    reduce(lambda x, y: x * y, scores, 1.0)
+                    for scores in confidence_scores
+                ],
+            }
 
             return result
 

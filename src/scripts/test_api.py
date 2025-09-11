@@ -67,6 +67,57 @@ def test_prediction_endpoint():
     print()
 
 
+def test_explainable_prediction_endpoint():
+    """Test the explainable prediction endpoint."""
+    print("Testing explainable prediction endpoint...")
+
+    # Example request
+    request_data = {
+        "part_characteristics": {
+            "geometry": "geometry_prismatic",
+            "holes": "holes_normal",
+            "external_threads": "external_threads_yes",
+            "surface_finish": "surface_finish_normal",
+            "tolerance": "tolerance_medium",
+            "batch_size": "batch_size_small",
+        },
+        "max_processes": 3,
+        "temperature": 0.8,
+        "include_confidence": True,
+    }
+
+    print(f"Request: {json.dumps(request_data, indent=2)}")
+
+    start_time = time.time()
+    response = requests.post(f"{API_BASE}/predict/explain", json=request_data)
+    request_time = (time.time() - start_time) * 1000
+
+    print(f"Status: {response.status_code}")
+    print(f"Request time: {request_time:.2f}ms")
+
+    if response.status_code == 200:
+        result = response.json()
+        print(f"Response: {json.dumps(result, indent=2)}")
+        
+        # Validate explainability structure
+        if "explainability" in result:
+            explainability = result["explainability"]
+            print("Explainability validation:")
+            print(f"  - Input influences: {len(explainability.get('input_influences', []))} chains")
+            
+            # Check structure of input influences
+            if explainability.get("input_influences"):
+                first_chain = explainability["input_influences"][0]
+                print(f"  - First chain processes: {list(first_chain.keys())}")
+                if first_chain:
+                    first_process = list(first_chain.values())[0]
+                    if first_process:
+                        print(f"  - Influence categories: {list(first_process.keys())}")
+    else:
+        print(f"Error: {response.text}")
+    print()
+
+
 def main():
     """Run all tests."""
     print("CAPP GPT API Test Suite")
@@ -76,6 +127,7 @@ def main():
         test_health_endpoint()
         test_tokens_endpoint()
         test_prediction_endpoint()
+        test_explainable_prediction_endpoint()
         print("All tests completed!")
     except requests.exceptions.ConnectionError:
         print(

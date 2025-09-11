@@ -3,7 +3,6 @@
 import time
 import logging
 from pathlib import Path
-from typing import Dict, Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
@@ -15,9 +14,10 @@ from .token_processor import TokenProcessor
 from .schemas import (
     InferenceRequest,
     InferenceResponse,
+    ExplainableInferenceRequest,
+    ExplainableInferenceResponse,
     HealthResponse,
     TokenCategoriesResponse,
-    ErrorResponse,
 )
 
 # Configure logging
@@ -43,7 +43,7 @@ app.add_middleware(
 )
 
 # Global token processor
-token_processor: TokenProcessor = None
+token_processor: TokenProcessor
 
 
 @app.on_event("startup")
@@ -136,32 +136,21 @@ async def predict_process_chains(request: InferenceRequest):
         input_sequence = token_processor.json_to_sequence(input_data)
 
         # Generate output sequence
-        output_sequence = model_service.generate_sequence(
+        output = model_service.generate_sequence(
             input_sequence,
-            max_length=512, #input_sequence.size(1) + request.max_processes,
+            max_length=512,
             temperature=request.temperature,
         )
 
         # Convert back to JSON
-        result = token_processor.sequence_to_json(
-            output_sequence, include_confidence=request.include_confidence
-        )
-
-        # Limit number of processes if requested
-        if len(result["process_chains"]) > request.max_processes:
-            result["process_chains"] = result["process_chains"][
-                : request.max_processes
-            ]
-            if result.get("confidence_scores"):
-                result["confidence_scores"] = result["confidence_scores"][
-                    : request.max_processes
-                ]
+        result = token_processor.sequence_to_json(output["sequences"], output["logits"])
 
         processing_time = (time.time() - start_time) * 1000
 
         return InferenceResponse(
             process_chains=result["process_chains"],
-            confidence_scores=result.get("confidence_scores"),
+            process_confidence=result["process_confidence"],
+            chain_confidence=result["chain_confidence"],
             processing_time_ms=processing_time,
         )
 
@@ -172,6 +161,74 @@ async def predict_process_chains(request: InferenceRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Prediction failed: {str(e)}",
+        )
+
+
+@app.post("/predict/explain", response_model=ExplainableInferenceResponse)
+async def predict_process_chains_with_explainability(
+    request: ExplainableInferenceRequest,
+):
+    """Predict manufacturing processes with explainability information."""
+    if not model_service.is_loaded():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model not loaded"
+        )
+
+    if token_processor is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Token processor not initialized",
+        )
+
+    start_time = time.time()
+
+    try:
+        # Convert request to dictionary for processing
+        input_data = {"part_characteristics": request.part_characteristics.model_dump()}
+        input_characteristics = request.part_characteristics.model_dump()
+
+        # Validate input
+        if not token_processor.validate_input(input_data):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid input tokens"
+            )
+
+        # Convert JSON to token sequence
+        input_sequence = token_processor.json_to_sequence(input_data)
+
+        # Generate output sequence with explainability
+        generation_result = model_service.generate_sequence_with_explainability(
+            input_sequence,
+            max_length=512,
+            temperature=request.temperature or 1.0,
+        )
+
+        # Convert back to JSON with explainability
+        result = token_processor.sequence_to_json_with_explainability(
+            sequence=generation_result["sequences"],
+            logits=generation_result["logits"],
+            attentions=generation_result["attentions"],
+            input_sequence=input_sequence,
+            input_characteristics=input_characteristics,
+        )
+
+        processing_time = (time.time() - start_time) * 1000
+
+        return ExplainableInferenceResponse(
+            process_chains=result["process_chains"],
+            process_confidence=result["process_confidence"],
+            chain_confidence=result["chain_confidence"],
+            explainability=result["explainability"],
+            processing_time_ms=processing_time,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Explainable prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Explainable prediction failed: {str(e)}",
         )
 
 

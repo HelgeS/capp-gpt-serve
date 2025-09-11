@@ -3,13 +3,13 @@
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from optimum.onnxruntime import ORTQuantizer, ORTModelForCausalLM
 from optimum.onnxruntime.configuration import AutoQuantizationConfig
 
 import torch
-from transformers import GPT2Config
+from transformers import GPT2Config, GPT2LMHeadModel
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +28,14 @@ class ModelService:
     def __init__(self):
         if not self._initialized:
             self.model: Optional[ORTModelForCausalLM] = None
+            self.pytorch_model: Optional[GPT2LMHeadModel] = None
             self.config: Optional[GPT2Config] = None
             # CPU-only for now, otherwise use: torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.device = "cpu"
             self._initialized = True
             self.pad_token_id: int = 52  # Default pad token ID
             self.eos_token_id: int = 51  # Default EOS token ID
+            self._original_model_path: Optional[Path] = None
 
     def load_model(self, model_path: Path) -> None:
         """Load the GPT-2 model from the specified path."""
@@ -52,11 +54,38 @@ class ModelService:
             self.eos_token_id = getattr(self.config, "eos_token_id", self.eos_token_id)
             logger.info(f"EOS token ID: {self.eos_token_id}")
 
-            # Initialize model
-            # self.model = GPT2LMHeadModel.from_pretrained(
-            #    model_path, local_files_only=True
-            # )
+            # Initialize ONNX model for fast inference
             self.model = ORTModelForCausalLM.from_pretrained(model_path)
+
+            # Load PyTorch model for attention extraction
+            info_file = model_path / "info.txt"
+            if info_file.exists():
+                with open(info_file, "r") as f:
+                    original_path = f.read().strip()
+                    self._original_model_path = Path(original_path)
+
+                    if self._original_model_path.exists():
+                        logger.info(
+                            f"Loading PyTorch model for attention extraction: {self._original_model_path}"
+                        )
+                        self.pytorch_model = GPT2LMHeadModel.from_pretrained(
+                            self._original_model_path,
+                            local_files_only=True,
+                            attn_implementation="eager",  # Required for attention output
+                        )
+                        self.pytorch_model.to(self.device)
+                        self.pytorch_model.eval()
+                        logger.info(
+                            "PyTorch model loaded successfully for attention extraction"
+                        )
+                    else:
+                        logger.warning(
+                            f"Original PyTorch model not found at: {self._original_model_path}"
+                        )
+            else:
+                logger.warning(
+                    "No info.txt file found - attention extraction will not be available"
+                )
 
             # Quantize, if needed
             if False:
@@ -103,11 +132,55 @@ class ModelService:
                     top_p=top_p,
                     pad_token_id=self.pad_token_id,
                     eos_token_id=self.eos_token_id,
+                    return_dict_in_generate=True,
+                    output_logits=True,
                 )
                 return outputs
 
         except Exception as e:
             logger.error(f"Generation failed: {e}")
+            raise
+
+    def generate_sequence_with_explainability(
+        self,
+        input_ids: torch.Tensor,
+        max_length: int = 512,
+        temperature: float = 1.0,
+        do_sample: bool = True,
+        top_p: float = 0.9,
+    ) -> Dict[str, Any]:
+        """Generate a sequence with explainability information using hybrid approach."""
+        if self.model is None:
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        try:
+            with torch.no_grad():
+                input_ids = input_ids.to(self.device)
+
+                try:
+                    logger.debug("Extracting attention weights using PyTorch model")
+                    result = self.pytorch_model.generate(
+                        input_ids,
+                        max_length=max_length,
+                        temperature=temperature,
+                        do_sample=do_sample,
+                        top_p=top_p,
+                        pad_token_id=self.pad_token_id,
+                        eos_token_id=self.eos_token_id,
+                        output_attentions=True,
+                        output_logits=True,
+                        return_dict_in_generate=True,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to extract attention weights from PyTorch model: {e}"
+                    )
+                    result = {}
+
+                return result
+
+        except Exception as e:
+            logger.error(f"Generation with explainability failed: {e}")
             raise
 
     def is_loaded(self) -> bool:
