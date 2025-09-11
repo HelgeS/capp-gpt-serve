@@ -167,9 +167,9 @@ class TokenProcessor:
             current_chain = []
             current_chain_confidence = []
 
-            assert len(process_tokens) == len(logits), (
-                "Mismatch between tokens and logits length"
-            )
+            assert len(process_tokens) == len(
+                logits
+            ), "Mismatch between tokens and logits length"
 
             for token_id, token_logits in zip(process_tokens, logits):
                 token_str = str(token_id)

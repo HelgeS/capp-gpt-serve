@@ -5,8 +5,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from optimum.onnxruntime import ORTQuantizer, ORTModelForCausalLM
-from optimum.onnxruntime.configuration import AutoQuantizationConfig
+from optimum.onnxruntime import ORTModelForCausalLM
 
 import torch
 from transformers import GPT2Config, GPT2LMHeadModel
@@ -88,15 +87,15 @@ class ModelService:
                 )
 
             # Quantize, if needed
-            if False:
-                quantizer = ORTQuantizer.from_pretrained(onnx_path)
-                dqconfig = AutoQuantizationConfig.avx2(
-                    is_static=False, per_channel=False
-                )
-                quantizer.quantize(
-                    save_dir="gpt2_quantize.onnx", quantization_config=dqconfig
-                )
-                self.model = ORTModelForCausalLM.from_pretrained("gpt2_quantize.onnx")
+            # if False:
+            #     quantizer = ORTQuantizer.from_pretrained(onnx_path)
+            #     dqconfig = AutoQuantizationConfig.avx2(
+            #         is_static=False, per_channel=False
+            #     )
+            #     quantizer.quantize(
+            #         save_dir="gpt2_quantize.onnx", quantization_config=dqconfig
+            #     )
+            #     self.model = ORTModelForCausalLM.from_pretrained("gpt2_quantize.onnx")
 
             # Move to device and set eval mode
             self.model.to(self.device)

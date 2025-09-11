@@ -3,12 +3,11 @@
 import asyncio
 import aiohttp
 import time
-import json
 import statistics
 import argparse
 import sys
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict
 from datetime import datetime
 import random
 
@@ -359,7 +358,7 @@ class APIBenchmark:
         print(f"Requests/second:    {stats.requests_per_second:.2f}")
 
         if stats.response_times:
-            print(f"\nResponse Times (ms):")
+            print("\nResponse Times (ms):")
             print(f"  Min:              {stats.min_response_time:.2f}")
             print(f"  Max:              {stats.max_response_time:.2f}")
             print(f"  Average:          {stats.avg_response_time:.2f}")
@@ -375,7 +374,7 @@ class APIBenchmark:
         if not response_times:
             return
 
-        print(f"\nResponse Time Distribution:")
+        print("\nResponse Time Distribution:")
 
         min_time = min(response_times)
         max_time = max(response_times)
@@ -455,7 +454,7 @@ async def main():
 
     benchmark = APIBenchmark(args.url, args.timeout)
 
-    print(f"🎯 CAPP GPT API Benchmark")
+    print("🎯 CAPP GPT API Benchmark")
     print(f"Target: {args.url}")
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("-" * 60)

@@ -4,7 +4,6 @@ import logging
 from typing import Dict, List, Any
 
 import torch
-import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
